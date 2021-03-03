@@ -47,7 +47,7 @@ void test_read(void *mem) {
 
 
 int main() {
-    printf("Demo 2: Cross-Thread Load Leaking\n");
+    printf("Demo 1b: Cross-Thread Load Leaking\n");
     _page_size = getpagesize();
     uint8_t *mem =
             mmap(NULL, _page_size * 257, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_HUGETLB, -1, 0) + 1;
