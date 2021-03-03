@@ -1,0 +1,54 @@
+#ifndef RIDL_UTILS_H
+#define RIDL_UTILS_H
+
+#include <fcntl.h>
+#include <time.h>
+#include <stdint.h>
+#include <pthread.h>
+
+#define TIMES_TEN(X) X X X X X X X X X X
+int _page_size = 0x1000;
+
+inline uint64_t time_convert(struct timespec *spec) { return (1000000000 * (uint64_t) spec->tv_sec) + spec->tv_nsec; }
+
+char *sample_strings[] = {
+        "_The implications are worrisome.",
+        "_This string is very secret. Don't read it!",
+        "_You should not be able to read this.",
+};
+
+void set_processor_affinity(int core_id) {
+    cpu_set_t cpuset;
+    CPU_ZERO(&cpuset);
+    CPU_SET(core_id, &cpuset);
+
+    pthread_t current_thread = pthread_self();
+    pthread_setaffinity_np(current_thread, sizeof(cpu_set_t), &cpuset);
+}
+
+
+inline void load_and_flush(uint64_t *address) {
+    uint64_t local;
+    TIMES_TEN(asm volatile(
+              "movq (%0), %1\n"
+              "mfence\n"
+              "xor %1, %1\n"
+              "clflush (%0)\n"
+              ::"r"(address), "r"(local));)
+}
+
+inline void store_and_flush(uint8_t value, void *destination) {
+    asm volatile(
+    "movq %0, (%1)\n"
+    "mfence\n"
+    "movq %0, (%1)\n"
+    "mfence\n"
+    "movq %0, (%1)\n"
+    "mfence\n"
+    "movq $0, (%1)\n"
+    "mfence\n"
+    "clflush (%1)\n"
+    ::"r"((uint64_t) value), "r"(destination));
+}
+
+#endif //RIDL_UTILS_H
