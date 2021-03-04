@@ -65,6 +65,7 @@ inline void victim(char *secret, uint64_t cycle_length) {
         }
         t = ktime_get_boottime_ns();
     }
+    free_pages_exact(destination, RIDL_PAGE_SIZE);
 }
 
 static ssize_t read_msg(struct file *file, char __user *ubuf,size_t count, loff_t *ppos)

@@ -5,7 +5,7 @@
 
 int fallout_compatible();
 
-int ridl_init();
+int ridl_init(int argc, char** args);
 
 void ridl_cleanup();
 

