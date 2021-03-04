@@ -55,7 +55,7 @@ int main() {
             max = hits[i];
         }
     }
-    if (max_i == WRITE_VALUE && max > (float) REPS / 100.0) {
+    if (max_i == WRITE_VALUE && max > (float) REPS / 1000.0) {
         printf("The expected value was successfully leaked.\nSuccess rate: %.2f%%\n", (100 * max) / ((double) REPS));
     } else {
         printf("The expected value was not leaked.\n");
