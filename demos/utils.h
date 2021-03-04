@@ -1,10 +1,12 @@
 #ifndef RIDL_UTILS_H
 #define RIDL_UTILS_H
 
+#include <stdio.h>
 #include <fcntl.h>
 #include <time.h>
 #include <stdint.h>
 #include <pthread.h>
+#include <string.h>
 
 #define TIMES_TEN(X) X X X X X X X X X X
 int _page_size = 0x1000;
@@ -24,6 +26,27 @@ void set_processor_affinity(int core_id) {
 
     pthread_t current_thread = pthread_self();
     pthread_setaffinity_np(current_thread, sizeof(cpu_set_t), &cpuset);
+}
+
+void get_same_core_cpus(int* a, int* b){
+    FILE *cpuinfo_fd = fopen("/proc/cpuinfo", "r");
+    char *read_buffer = NULL;
+    int empty = 0, core_num = 0;
+    ssize_t len = 1024;
+    while (getline(&read_buffer, &len, cpuinfo_fd)) {
+        if(strlen(read_buffer) <= 1){
+            if(empty) break;
+            empty = 1;
+        }else empty = 0;
+        if(strncmp(read_buffer, "core id", 7))
+            continue;
+        core_num++;
+    }
+    *a = (core_num / 2) - 1;
+    *b = core_num - 1;
+    printf("Running on cores %d and %d\n", *a, *b);
+    fflush(stdout);
+    fclose(cpuinfo_fd);
 }
 
 

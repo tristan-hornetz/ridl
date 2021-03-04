@@ -38,6 +38,7 @@ void attacker(void *mem) {
 
 int main() {
     printf("Demo 1a: Cross-Thread Store Leaking\n");
+    get_same_core_cpus(&reader_cpu, &writer_cpu);
     _page_size = getpagesize();
     uint8_t *mem =
             mmap(NULL, _page_size * 257, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_HUGETLB, -1, 0) + 1;

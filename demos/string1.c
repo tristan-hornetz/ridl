@@ -74,6 +74,7 @@ void attacker(void *mem, int cycle_length) {
 
 int main() {
     printf("Demo 2a: Observing a string (store)\n");
+    get_same_core_cpus(&reader_cpu, &writer_cpu);
     _page_size = getpagesize();
     time_t tm;
     time(&tm);

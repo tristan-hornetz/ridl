@@ -71,6 +71,7 @@ int main() {
         return 1;
     }
     printf("Demo 2c: Observing a string (store) across privilege boundaries\n");
+    get_same_core_cpus(&reader_cpu, &writer_cpu);
     _page_size = getpagesize();
     time_t tm;
     time(&tm);
