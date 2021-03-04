@@ -13,10 +13,12 @@ int _page_size = 0x1000;
 
 inline uint64_t time_convert(struct timespec *spec) { return (1000000000 * (uint64_t) spec->tv_sec) + spec->tv_nsec; }
 
+int sample_string_count = 4;
 char *sample_strings[] = {
         "_The implications are worrisome.",
         "_This string is very secret. Don't read it!",
         "_You should not be able to read this.",
+        "_These characters were obtained from *NULL.",
 };
 
 void set_processor_affinity(int core_id) {
@@ -28,17 +30,17 @@ void set_processor_affinity(int core_id) {
     pthread_setaffinity_np(current_thread, sizeof(cpu_set_t), &cpuset);
 }
 
-void get_same_core_cpus(int* a, int* b){
+void get_same_core_cpus(int *a, int *b) {
     FILE *cpuinfo_fd = fopen("/proc/cpuinfo", "r");
     char *read_buffer = NULL;
     int empty = 0, core_num = 0;
     ssize_t len = 1024;
     while (getline(&read_buffer, &len, cpuinfo_fd)) {
-        if(strlen(read_buffer) <= 1){
-            if(empty) break;
+        if (strlen(read_buffer) <= 1) {
+            if (empty) break;
             empty = 1;
-        }else empty = 0;
-        if(strncmp(read_buffer, "core id", 7))
+        } else empty = 0;
+        if (strncmp(read_buffer, "core id", 7))
             continue;
         core_num++;
     }

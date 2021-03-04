@@ -10,7 +10,7 @@
 
 #define REPS 200000
 #define WRITE_VALUE 42ull
-#define CYCLE_LENGTH 40000000
+#define CYCLE_LENGTH 400000000
 
 
 int writer_cpu = 3, reader_cpu = 7, pid = 0;
@@ -79,7 +79,7 @@ int main() {
     time_t tm;
     time(&tm);
     srand(tm);
-    char *secret = sample_strings[random() % 3];
+    char *secret = sample_strings[random() % sample_string_count];
     uint8_t *mem =
             mmap(NULL, _page_size * 257, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_HUGETLB, -1, 0) + 1;
     memset(mem, 0xFF, _page_size * 256);
