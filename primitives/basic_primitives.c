@@ -126,7 +126,6 @@ static inline int get_cache_timing() {
         ret += (int) measure_access_time(page) / 2;
     }
     free(page);
-    printf("%d\n", ret / 3500);
     return ret / 3500;
 }
 
