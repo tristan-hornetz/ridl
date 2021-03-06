@@ -14,7 +14,7 @@ You will need root permissions.
 
 **Dependencies**
 
-You will need _cmake_ to build the demos. Since this repository also contains a kernel-module, you should also install the Linux Headers for your Kernel version.  
+You need _cmake_ to build the demos. Since this repository also contains a kernel-module, you should also install the Linux-Headers for your Kernel version.  
 Example for Debian and Ubuntu:
 <!-- prettier-ignore -->
 ```shell
@@ -39,7 +39,7 @@ Before running any of the demos, you should allocate some huge pages with
  ```
 
 If your CPU supports Intel TSX, you can pass the _--taa_ parameter to any of the demos to
-utilise _TSX Asynchronous Abort_. This may drastically increase the success rate.
+utilise _TSX Asynchronous Abort_ instead of basic RIDL. This may drastically increase the success rate.
 
 
 ## Demo #1: Determining success rates
@@ -89,4 +89,8 @@ This demo transmits a character string. Again, there are multiple variants:
 
 ## Acknowledgements
 
-Parts of this project are based on the [Meltdown Proof-of-Concept](https://github.com/IAIK/meltdown).
+Parts of this project are based on the [Meltdown Proof-of-Concept](https://github.com/IAIK/meltdown).  
+
+[A PoC for several RIDL-class vulnerabilities](https://github.com/vusec/ridl) was published by the authors of the 
+original RIDL-paper. Their implementation (especially for TAA) was used for troubleshooting and served as an additional source
+for information on RIDL.
