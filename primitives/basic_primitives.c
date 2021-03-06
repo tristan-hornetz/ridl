@@ -116,14 +116,18 @@ static void segfault_handler(int signum) {
 }
 
 static inline int get_cache_timing() {
+    int ret = 0;
     uint64_t * page = aligned_alloc(page_size, page_size);
     page[0] = 42;
     asm volatile("mfence");
-    flush(page);
-    asm volatile("mfence");
-    int ret = (int) measure_access_time(page) / 2;
+    for(int i = 0; i < 2000; i++) {
+        flush(page);
+        asm volatile("mfence");
+        ret += (int) measure_access_time(page) / 2;
+    }
     free(page);
-    return ret;
+    printf("%d\n", ret / 3500);
+    return ret / 3500;
 }
 
 

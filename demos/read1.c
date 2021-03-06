@@ -38,7 +38,12 @@ int main(int argc, char** args) {
     get_same_core_cpus(&reader_cpu, &writer_cpu);
     _page_size = getpagesize();
     uint8_t *mem =
-            mmap(NULL, _page_size * 257, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_HUGETLB, -1, 0) + 1;
+            mmap(NULL, _page_size * 257, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_HUGETLB, -1, 0);
+    if(((int64_t)mem) <= (int64_t)0){
+        printf("Mapping the reload buffer failed. Did you allocate some huge pages?\n");
+        return 1;
+    }
+    fflush(stdout);
     memset(mem, 0xFF, _page_size * 256);
     ridl_init(argc, args);
     pid = fork();
@@ -55,7 +60,7 @@ int main(int argc, char** args) {
     if (max_i == WRITE_VALUE && max > (float) REPS / 1000.0) {
         printf("The expected value was successfully leaked.\nSuccess rate: %.2f%%\n", (100 * max) / ((double) REPS));
     } else {
-        printf("The expected value was not leaked. %d-%d\n", max_i, max);
+        printf("The expected value was not leaked.\n");
     }
     kill(pid, SIGKILL);
     usleep(10000);

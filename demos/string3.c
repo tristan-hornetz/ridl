@@ -41,6 +41,10 @@ int main(int argc, char** args) {
     char *secret = sample_strings[random() % sample_string_count];
     uint8_t *mem =
             mmap(NULL, _page_size * 257, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_HUGETLB, -1, 0) + 1;
+    if(((int64_t)mem) <= (int64_t)0){
+        printf("Mapping the reload buffer failed. Did you allocate some huge pages?\n");
+        return 1;
+    }
     memset(mem, 0xFF, _page_size * 256);
     ridl_init(argc, args);
     pid = fork();
