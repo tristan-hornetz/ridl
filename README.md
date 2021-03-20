@@ -39,7 +39,8 @@ Before running any of the demos, you should allocate some huge pages with
  ```
 
 If your CPU supports Intel TSX, you can pass the _--taa_ parameter to any of the demos to
-utilise _TSX Asynchronous Abort_ instead of basic RIDL. This may drastically increase the success rate.
+utilise _TSX Asynchronous Abort_ instead of basic RIDL. This may drastically increase the success rate and
+makes the demos work on systems that are resistant against other RIDL-type attacks.
 
 
 ## Demo #1: Determining success rates
