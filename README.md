@@ -86,7 +86,17 @@ This demo transmits a character string. Again, there are multiple variants:
  sudo rmmod ridl_module
  ``` 
  
-    
+ ## Warnings
+
+* We provide this code as-is, without any warranty of any kind. It may cause undesirable behaviour on your system, 
+  or not work at all. You are fully responsible for any consequences that might arise from running this code. Please refer to the license for further information.
+  
+  
+* If you find that your system is susceptible to MFBDS and/or TAA, you should avoid using it as a multi-user system. SGX enclaves and VMs offer no protection. Make sure to turn off SMT and install the latest microcode updates (either in your BIOS or your OS).
+
+
+* This code is meant for testing purposes and should not be used on production systems. _Do not run this code on any machine that is not yours, or could be used by another person._
+   
 
 ## Acknowledgements
 
